@@ -1,0 +1,113 @@
+:root {
+  color-scheme: light;
+  --border: #ddd;
+  --muted: #777;
+  --accent: #2f6fed;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 0 16px 48px;
+  color: #1a1a1a;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 24px;
+}
+
+.brand {
+  font-weight: 700;
+  font-size: 1.25rem;
+  text-decoration: none;
+  color: #1a1a1a;
+}
+
+.topbar nav { display: flex; gap: 12px; align-items: center; }
+.topbar nav a { text-decoration: none; color: var(--accent); }
+
+.muted { color: var(--muted); font-size: 0.9rem; }
+
+.flashes {
+  list-style: none;
+  padding: 12px;
+  margin: 0 0 24px;
+  background: #fff4e5;
+  border: 1px solid #f0c987;
+  border-radius: 6px;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 360px;
+}
+
+.form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.9rem;
+}
+
+.form input {
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 1rem;
+}
+
+button {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  background: var(--accent);
+  color: white;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.inline { display: inline; }
+
+.link-button {
+  background: none;
+  border: none;
+  color: inherit;
+  padding: 0;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.feed {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.post {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.post img {
+  width: 100%;
+  display: block;
+  background: #f2f2f2;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+}
+
+.post-body { padding: 12px; }
+.post-author { font-weight: 600; margin: 0 0 4px; }
+.post-description { margin: 0 0 8px; }
+.post-meta { color: var(--muted); font-size: 0.8rem; margin: 0 0 8px; }

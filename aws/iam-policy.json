@@ -1,0 +1,20 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "InstarettoUploadsReadWrite",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:GetObject"
+      ],
+      "Resource": "arn:aws:s3:::instaretto-uploads-<yourname>/posts/*"
+    },
+    {
+      "Sid": "InstarettoLogsWrite",
+      "Effect": "Allow",
+      "Action": "s3:PutObject",
+      "Resource": "arn:aws:s3:::instaretto-logs-<yourname>/logs/instaretto/*"
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Instaretto{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="{{ url_for('posts.feed') if g.user else url_for('auth.login') }}">Instaretto</a>
+    {% if g.user %}
+      <nav>
+        <span class="muted">{{ g.user.email }}</span>
+        <a href="{{ url_for('posts.upload') }}">Upload</a>
+        <form action="{{ url_for('auth.logout') }}" method="post" class="inline">
+          <button type="submit" class="link-button">Log out</button>
+        </form>
+      </nav>
+    {% endif %}
+  </header>
+
+  {% with messages = get_flashed_messages() %}
+    {% if messages %}
+      <ul class="flashes">
+        {% for message in messages %}
+          <li>{{ message }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  {% endwith %}
+
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

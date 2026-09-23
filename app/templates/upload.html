@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Upload - Instaretto{% endblock %}
+{% block content %}
+  <h1>Upload a picture</h1>
+  <form method="post" enctype="multipart/form-data" class="form">
+    <label>Image (jpeg, png, or webp, max 5 MB)
+      <input type="file" name="image" accept="image/jpeg,image/png,image/webp" required>
+    </label>
+    <label>Description
+      <input type="text" name="description" maxlength="500">
+    </label>
+    <button type="submit">Post</button>
+  </form>
+{% endblock %}

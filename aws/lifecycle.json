@@ -1,0 +1,14 @@
+{
+  "Rules": [
+    {
+      "ID": "instaretto-logs-tiering",
+      "Filter": { "Prefix": "logs/instaretto/" },
+      "Status": "Enabled",
+      "Transitions": [
+        { "Days": 30, "StorageClass": "STANDARD_IA" },
+        { "Days": 90, "StorageClass": "DEEP_ARCHIVE" }
+      ],
+      "Expiration": { "Days": 365 }
+    }
+  ]
+}

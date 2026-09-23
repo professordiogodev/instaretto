@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Feed - Instaretto{% endblock %}
+{% block content %}
+  <h1>Feed</h1>
+  {% if not posts_view %}
+    <p class="muted">No posts yet. <a href="{{ url_for('posts.upload') }}">Upload the first one.</a></p>
+  {% endif %}
+  <div class="feed">
+    {% for item in posts_view %}
+      <article class="post">
+        <img src="{{ item.image_url }}" alt="{{ item.post.description }}" loading="lazy">
+        <div class="post-body">
+          <p class="post-author">{{ item.post.author.email }}</p>
+          <p class="post-description">{{ item.post.description }}</p>
+          <p class="post-meta">{{ item.post.created_at.strftime('%Y-%m-%d %H:%M UTC') }}</p>
+          <form action="{{ url_for('posts.unlike' if item.liked_by_me else 'posts.like', post_id=item.post.id) }}" method="post" class="inline">
+            <button type="submit" class="link-button">
+              {{ '♥' if item.liked_by_me else '♡' }} {{ item.like_count }}
+            </button>
+          </form>
+        </div>
+      </article>
+    {% endfor %}
+  </div>
+{% endblock %}
