@@ -10,6 +10,20 @@ you're on track before you move on. If a checkpoint doesn't match,
 stop and fix it there rather than pushing on — everything after it
 assumes it worked.
 
+This lab deliberately doesn't use Docker or containers anywhere.
+You'll run the app directly with a Python virtual environment and a
+PostgreSQL server installed on your own machine — one less new concept
+between you and the ideas this lab actually cares about. (There's a
+`with-docker` branch of this repo with the same app deployed via Docker
+instead, if you want to compare later — that's optional, come-back-to-it
+material, not something you need today.)
+
+All commands in this lab assume a **Linux shell**: native Linux, WSL2
+on Windows, or OrbStack (or similar) on macOS. If you're on Windows or
+Mac without one of those set up yet, do that first — everything below
+assumes `apt` is available and behaves like a normal Ubuntu/Debian
+machine.
+
 Instaretto itself is a tiny photo-sharing app: sign up, log in, upload
 a picture with a description, see a feed, like/unlike posts. The app
 is not the point of this lab. The point is what's underneath it:
@@ -29,9 +43,10 @@ lesson: a well-built app shouldn't care much where its database lives.
 
 You need:
 
-- **Docker Desktop** (or an equivalent Docker + Compose setup) —
-  this runs the app and a local database in isolated containers, so
-  you don't have to install Python or Postgres directly on your machine
+- **Python 3.10 or newer**, with `venv` (bundled with Python — no
+  separate install needed). Check with `python3 --version`.
+- **PostgreSQL**, installed and runnable on your own machine. You'll
+  install and start it in Part 1 if you haven't already.
 - **AWS CLI v2**, configured with a profile that has permissions to
   create S3 buckets, an RDS database, an EC2 server, and IAM roles.
   Run `aws configure` (or `aws configure sso` if your school/org uses
@@ -62,14 +77,75 @@ Clone or copy this repo to your machine before continuing.
 
 ---
 
-## Part 1: Run it locally
+## Part 1: Install PostgreSQL and run the app locally
 
 The app can run before any AWS resources exist at all — you just won't
 be able to upload real pictures yet. That's a deliberate first
 checkpoint: it proves the app and the database work together,
 completely independent of anything in the cloud.
 
-1. Copy the env file (this holds configuration and secrets the app
+### 1.1 Install and start PostgreSQL
+
+```
+sudo apt update
+sudo DEBIAN_FRONTEND=noninteractive apt install -y postgresql
+sudo systemctl enable --now postgresql
+```
+
+(`DEBIAN_FRONTEND=noninteractive` just skips a timezone prompt that one
+of Postgres's dependencies can pop up on a completely fresh system —
+without it, the install can look like it's hung when it's actually
+just waiting for input.)
+
+Confirm it's running:
+
+```
+sudo -u postgres psql -c "SELECT version();"
+```
+
+If that prints a PostgreSQL version instead of a connection error,
+you're set. (The `sudo -u postgres` part matters: apt's Postgres
+package creates one superuser role, `postgres`, and only lets you log
+into it by first becoming the matching `postgres` *Linux* user — your
+own Linux user has no Postgres role yet, which is exactly what the
+next step fixes.)
+
+### 1.2 Create the database and load the schema
+
+```
+sudo -u postgres psql -c "CREATE ROLE instaretto WITH LOGIN PASSWORD 'instaretto';"
+sudo -u postgres psql -c "CREATE DATABASE instaretto OWNER instaretto;"
+psql "postgresql://instaretto:instaretto@localhost:5432/instaretto" -f schema.sql
+```
+
+That last command connects over TCP with a username/password instead
+of peer auth, which is why it doesn't need `sudo -u postgres` — you're
+authenticating as the `instaretto` role you just created, the same way
+the app itself will.
+
+That last command runs `schema.sql` directly — open that file now and
+skim it, it's short and worth reading before you run it blind. It
+creates the `users`, `posts`, and `likes` tables and inserts a couple
+of seed rows so you have something to look at immediately.
+
+### 1.3 Set up and run the app
+
+1. Create a Python virtual environment (an isolated folder of Python
+   packages just for this project, so it doesn't clash with anything
+   else on your machine) and install dependencies into it:
+
+   ```
+   python3 -m venv .venv
+   source .venv/bin/activate
+   pip install -r requirements.txt
+   ```
+
+   (On Windows without WSL: `.venv\Scripts\activate` instead of
+   `source .venv/bin/activate`.) You'll need to run that `source .../activate`
+   line again in any new terminal tab you open for this project — it's
+   what puts this project's installed packages on your `PATH`.
+
+2. Copy the env file (this holds configuration and secrets the app
    reads on startup — it's deliberately gitignored so you never commit
    secrets) and generate a secret key:
 
@@ -78,35 +154,22 @@ completely independent of anything in the cloud.
    python3 -c "import secrets; print(secrets.token_hex(32))"
    ```
 
-   Paste the output into `SECRET_KEY` in `.env`. Leave `DATABASE_URL` as
-   the default (it points at the `db` service in docker-compose). Leave
-   `S3_BUCKET_UPLOADS` / `S3_BUCKET_LOGS` as the `<yourname>` placeholders
-   for now — replace `<yourname>` with your tag, even though the buckets
-   don't exist yet.
+   Paste the output into `SECRET_KEY` in `.env`. Leave `DATABASE_URL`
+   as the default — it already points at the database you just
+   created (`localhost`, matching username/password `instaretto`).
+   Leave `S3_BUCKET_UPLOADS` / `S3_BUCKET_LOGS` as the `<yourname>`
+   placeholders for now — replace `<yourname>` with your tag, even
+   though the buckets don't exist yet.
 
-2. Create the local log directory the container will write into:
-
-   ```
-   mkdir -p data/logs
-   chmod 777 data/logs
-   ```
-
-   (The `chmod` is a lab shortcut so the container's non-root user can
-   write into a directory owned by your host user — not something
-   you'd do on a real server, where you'd match ownership properly
-   instead of opening it up to everyone.)
-
-3. Start everything:
+3. Start the app:
 
    ```
-   docker compose up --build
+   flask --app wsgi run --port 8000
    ```
 
-   This builds the app image, starts a Postgres container (loading
-   `schema.sql` automatically the first time it boots — open that file
-   now and skim it, it's short and worth reading before you run it
-   blind), and starts the Flask app under Gunicorn. Leave this running
-   in its own terminal tab.
+   Leave this running in its own terminal tab — you'll see request
+   logs print here as you use the app. `wsgi.py` loads your `.env`
+   file automatically before the app starts.
 
 4. Open <http://localhost:8000>. Log in as a seed user (a user already
    created for you by `schema.sql`, so you don't have to sign up first
@@ -120,9 +183,14 @@ completely independent of anything in the cloud.
 5. Try signing up a new account, logging out, logging back in.
 
 **Checkpoint:** the feed loads, shows two seed posts with broken
-images, and you can sign up / log in / log out. Run
-`docker compose logs web` in another terminal and you should see
-`login_success` lines for your activity.
+images, and you can sign up / log in / log out. Your terminal running
+`flask run` should be printing a line for each request, and
+`data/logs/app.log` (created automatically, next to this repo) should
+contain `login_success` lines for your activity:
+
+```
+cat data/logs/app.log
+```
 
 ---
 
@@ -173,11 +241,12 @@ for a different region.)
 
 Now update `.env` with your real bucket names (replace the
 `<yourname>` placeholders in `S3_BUCKET_UPLOADS` / `S3_BUCKET_LOGS`
-with the actual bucket names you just created) and restart the app so
-it picks up the change:
+with the actual bucket names you just created), then stop the running
+app (`Ctrl+C` in its terminal tab) and start it again so it picks up
+the change:
 
 ```
-docker compose up -d --force-recreate web
+flask --app wsgi run --port 8000
 ```
 
 **Checkpoint:**
@@ -232,19 +301,20 @@ rename it to `fake.jpg`, and try to upload it through the app. The
 server doesn't just trust the browser's claim that this is a JPEG — it
 opens the file and checks its first few bytes against the real magic
 numbers JPEG/PNG/WEBP files start with. It should reject the upload
-with "file contents do not match declared content type." Check
-`docker compose logs web` for the `upload_failed` line to see it
-happen.
+with "file contents do not match declared content type." Check the
+terminal running `flask run` (or `data/logs/app.log`) for the
+`upload_failed` line to see it happen.
 
 ---
 
 ## Part 4: Inspect the database with psql
 
-`psql` is Postgres's interactive command-line client. Connect to the
-database running in your local Postgres container:
+`psql` is Postgres's interactive command-line client — the same one
+you already used in Part 1 to load the schema. Connect to your local
+database:
 
 ```
-docker compose exec db psql -U instaretto -d instaretto
+psql "postgresql://instaretto:instaretto@localhost:5432/instaretto"
 ```
 
 Look at the schema (`\d` describes a table):
@@ -307,10 +377,8 @@ Type `\q` to exit `psql`.
 
 ## Part 5: Ship logs and apply the lifecycle rule
 
-The app writes to `data/logs/app.log` on your host machine (this
-directory is bind-mounted into the container at `/var/log/instaretto`,
-so files written inside the container show up right here on your
-laptop too) using a handler that rotates the log file at midnight UTC,
+The app writes to `data/logs/app.log`, right next to this repo on your
+machine, using a handler that rotates the log file at midnight UTC,
 producing files named like `app.log.2026-09-23`. Waiting for real
 midnight isn't practical mid-class, so we'll fake a rotation by
 copying the active file:
@@ -407,7 +475,9 @@ should show the rule you just applied.
 If this were a real production server, you'd also want this running
 automatically every day without you remembering — see the comment
 block at the bottom of `scripts/ship_logs.sh` for a ready-to-use
-crontab line and a systemd-timer alternative.
+crontab line and a systemd-timer alternative (you'll set up a
+systemd-managed process for the app itself in Part 6, so this pattern
+will already look familiar by then).
 
 ---
 
@@ -423,9 +493,9 @@ exactly the same code. Locally, boto3 (AWS's Python SDK) found
 credentials through your AWS CLI profile; on EC2, it'll find them
 through an **instance profile** (an IAM role attached directly to the
 server) instead. At no point does an access key get written into the
-app, the container image, or the instance itself — the credentials are
-handed to the code automatically, from a different place, without the
-code knowing or caring which.
+app or the server itself — the credentials are handed to the code
+automatically, from a different place, without the code knowing or
+caring which.
 
 ### 6.1 Create two security groups
 
@@ -486,8 +556,8 @@ terminal session) — you'll use them again below.
 **RDS (Relational Database Service)** is AWS's managed Postgres (and
 MySQL, and others) offering — AWS handles the server, patching, and
 backups; you just get a connection endpoint. This is the same Postgres
-you were already running in Docker, just hosted for you instead of by
-you.
+you were already running on your own machine, just hosted for you
+instead of by you.
 
 Console: RDS service → **Create database** → Standard create →
 PostgreSQL → a recent 16.x engine version → template Dev/Test (or Free
@@ -596,7 +666,9 @@ by creating one automatically, but the CLI makes you do it explicitly.)
 ### 6.4 Launch the EC2 instance
 
 **EC2 (Elastic Compute Cloud)** is just a virtual server — a regular
-Linux machine you get SSH access to, same as any VM.
+Linux machine you get SSH access to, same as any VM. No containers
+here either: you'll set this server up the same direct way you set up
+your own laptop in Part 1.
 
 Console: EC2 service → **Launch instance** → Name
 `instaretto-app-<yourname>` → AMI (Amazon Machine Image — the OS
@@ -606,14 +678,13 @@ private key file to SSH in — don't lose it) → Network settings: select
 `instaretto-ec2-sg-<yourname>`, auto-assign public IP: enabled →
 Advanced details → IAM instance profile:
 `instaretto-ec2-role-<yourname>` → User data (a script that runs
-automatically the first time the instance boots):
+automatically the first time the instance boots — this installs
+Python, Git, and a Postgres client, nothing else):
 
 ```bash
 #!/bin/bash
 dnf update -y
-dnf install -y docker git postgresql15
-systemctl enable --now docker
-usermod -aG docker ec2-user
+dnf install -y python3.11 python3.11-pip git postgresql15
 ```
 
 → Launch instance.
@@ -666,50 +737,71 @@ ssh -i /path/to/your-key.pem ec2-user@<public-ip>
 booting, and double check your security group allows SSH from your
 current IP.)
 
-Once you're in, on the instance:
+Once you're in, on the instance — this is the same three moves as
+Part 1: clone the code, set up a virtual environment, write `.env`:
 
 ```bash
 git clone <this-repo-url> instaretto
 cd instaretto
 
+python3.11 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+
 cat > .env <<EOF
-SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
+SECRET_KEY=$(python3.11 -c "import secrets; print(secrets.token_hex(32))")
 DATABASE_URL=postgresql://instaretto:<the-master-password>@<rds-endpoint>:5432/instaretto
 S3_BUCKET_UPLOADS=instaretto-uploads-<yourname>
 S3_BUCKET_LOGS=instaretto-logs-<yourname>
 AWS_REGION=us-east-1
-LOG_DIR=/var/log/instaretto
+LOG_DIR=./data/logs
 EOF
 
 # Load the schema once, directly against RDS.
 psql "$(grep DATABASE_URL .env | cut -d= -f2-)" -f schema.sql
-
-docker build -t instaretto .
-sudo mkdir -p /var/log/instaretto
-# Same lab shortcut as Part 1: a fresh host directory is root-owned, but
-# the container runs as a non-root user, so it can't write app.log here
-# without this. (docker-compose's bind mount only avoided this because
-# Docker Desktop's VM doesn't enforce host UID/GID on bind mounts the
-# way native Linux -- what EC2 actually runs -- does.)
-sudo chmod 777 /var/log/instaretto
-docker run -d --name instaretto \
-  --env-file .env \
-  -p 8000:8000 \
-  -v /var/log/instaretto:/var/log/instaretto \
-  instaretto
 ```
 
-Notice what's **not** here: no `~/.aws` mount, no access key, no
-secret key, anywhere in `.env` or the `docker run` command. boto3
-inside the container still resolves credentials automatically — this
-time from the instance metadata service, because of the instance
-profile you attached in 6.3. Same application code, different
-credential source, zero code changes.
+Now run the app the way a real server would — under Gunicorn (the
+production WSGI server, already in `requirements.txt`), managed by
+**systemd** (Linux's standard service manager) so it keeps running
+after you disconnect and restarts automatically if it ever crashes.
+Create the service file:
+
+```bash
+sudo tee /etc/systemd/system/instaretto.service > /dev/null <<EOF
+[Unit]
+Description=Instaretto Flask app
+After=network.target
+
+[Service]
+User=ec2-user
+WorkingDirectory=/home/ec2-user/instaretto
+ExecStart=/home/ec2-user/instaretto/.venv/bin/gunicorn --bind 0.0.0.0:8000 --workers 2 wsgi:app
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now instaretto
+sudo systemctl status instaretto
+```
+
+`wsgi.py` loads `.env` from its own directory automatically (same as
+it did locally in Part 1), so Gunicorn picks up your configuration
+without any extra systemd configuration for environment variables.
+
+Notice what's **not** here: no access key, no secret key, anywhere in
+`.env` or the systemd unit file. boto3 inside the app still resolves
+AWS credentials automatically — this time from the instance metadata
+service, because of the instance profile you attached in 6.3. Same
+application code, different credential source, zero code changes.
 
 **Checkpoint 1 — same code, different credential source:**
 
 ```bash
-# On the EC2 instance, outside the container:
+# On the EC2 instance:
 aws configure list        # shows no access key configured
 aws sts get-caller-identity   # still returns an identity -- via the instance role
 ```
@@ -717,8 +809,8 @@ aws sts get-caller-identity   # still returns an identity -- via the instance ro
 **Checkpoint 2 — the app works end to end:** from your own laptop
 (not the EC2 instance), open `http://<public-ip>:8000` in a browser,
 log in, upload a picture. It should behave identically to Part 3, but
-the database is now RDS and the container has no AWS credentials of
-its own.
+the database is now RDS and the server has no AWS credentials of its
+own on disk anywhere.
 
 **Checkpoint 3 — RDS really is locked down:** from your own laptop
 (not the EC2 instance), try:
@@ -783,8 +875,10 @@ aws iam delete-instance-profile --instance-profile-name instaretto-ec2-role-<you
 aws iam delete-role --role-name instaretto-ec2-role-<yourname>
 ```
 
-Also stop your local containers and remove the local Postgres volume
-if you're done for good: `docker compose down -v`.
+Locally, you can also stop Postgres if you're done for good
+(`brew services stop postgresql@16` on macOS, or
+`sudo systemctl stop postgresql` on Linux) — though there's no harm in
+leaving it installed and running for next time.
 
 **Checkpoint** — each of these should come back empty (or show
 `terminated`):
@@ -832,7 +926,12 @@ with whoever's sitting next to you.
    just turning on Intelligent-Tiering and shipping every log line as
    it's written?
 7. The EC2 instance never has AWS access keys anywhere — not in
-   `.env`, not in the image, not in a mounted file. Where do the
-   credentials boto3 uses actually come from, and what would you have
-   to do to steal them if you had shell access to the instance versus
-   if you only had read access to this git repo?
+   `.env`, not on disk anywhere else. Where do the credentials boto3
+   uses actually come from, and what would you have to do to steal
+   them if you had shell access to the instance versus if you only had
+   read access to this git repo?
+8. Locally you ran the app with `flask run` and on EC2 with Gunicorn
+   under systemd. Both serve the same Flask app — what does systemd
+   actually give you (`Restart=on-failure`, surviving SSH logout,
+   `systemctl status`) that just running a command in your terminal on
+   the server wouldn't?

@@ -12,37 +12,46 @@ and the full hands-on lab walks you through every layer of it, first
 on your own laptop, then for real on AWS.
 
 **New here? Start with [LAB.md](LAB.md).** It's a step-by-step guide
-written for people who haven't necessarily touched AWS before —
-each part ends with a concrete checkpoint so you always know if
-you're still on track.
+written for people who haven't necessarily touched AWS (or even run a
+Python web app) before — each part ends with a concrete checkpoint so
+you always know if you're still on track.
 
 ## What you'll practice
 
-- Running a real app + database locally with Docker
+- Running a real Flask app against a real PostgreSQL database, both on
+  your own machine
 - Object storage (S3): private buckets, presigned URLs, upload
   validation
 - Relational storage (PostgreSQL): schemas, foreign keys, constraints
   that do real work
-- Moving from a local database to a managed one (RDS) without
-  rewriting the app
+- Moving from a database on your laptop to a managed one (RDS)
+  without rewriting the app
 - Credentials done right: no access keys anywhere in the code — local
   dev uses your AWS CLI profile, production uses an EC2 instance role
 - Cost-aware logging: rotating, shipping, and tiering log files
 - Provisioning cloud infrastructure by hand (console + CLI), and
   tearing it all back down afterward
 
-No prior AWS experience required. Some comfort with the command line
-and a text editor is enough — the lab explains each new concept as it
-shows up.
+No prior AWS experience required, and this version of the lab doesn't
+use Docker or containers anywhere — everything runs directly with a
+Python virtual environment and a PostgreSQL server installed on your
+machine, so there's one less new tool between you and the concepts
+that actually matter here. (If you already know Docker and want to see
+the same app deployed with it instead, check out the `with-docker`
+branch — but that's optional, later material.)
+
+Everything here assumes a **Linux shell**: native Linux, WSL2 on
+Windows, or OrbStack (or similar) on macOS — commands are plain
+`apt`/`systemctl`, nothing OS-specific beyond that.
 
 ## Stack
 
 - Flask + SQLAlchemy, server-rendered Jinja2 templates, no JS build step
-- PostgreSQL (local: a Docker container; on AWS: RDS)
+- PostgreSQL (local: installed directly on your machine; on AWS: RDS)
 - S3 for image storage, accessed via boto3's default credential chain
   (your AWS CLI profile locally, an EC2 instance role in production —
   same application code either way)
-- Gunicorn in the container
+- Gunicorn as the production WSGI server (used on EC2 in Part 6)
 - Plain SQL schema (`schema.sql`), no migration framework — it's meant
   to be read, not just run
 
@@ -51,8 +60,8 @@ shows up.
 ```
 app/                  Flask application (routes, models, templates, S3 client)
 schema.sql             Database schema + seed data (read this, don't just run it)
-Dockerfile
-docker-compose.yml      Local dev: app + Postgres
+requirements.txt       Python dependencies
+wsgi.py                App entry point (loads .env, creates the Flask app)
 scripts/ship_logs.sh    Ships rotated logs to S3
 aws/lifecycle.json      S3 lifecycle rule for the logs bucket
 aws/iam-policy.json     Least-privilege policy for the EC2 instance role
@@ -62,8 +71,18 @@ LAB.md                 The full hands-on lab — start here
 ## Quick start (local)
 
 ```
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 cp .env.example .env      # edit values
-docker compose up --build
+```
+
+You'll also need PostgreSQL running locally and the schema loaded —
+[LAB.md Part 1](LAB.md) walks through installing it and setting that up
+in a couple of commands. Once that's done:
+
+```
+flask --app wsgi run --port 8000
 ```
 
 Then open <http://localhost:8000> and log in as `alice@example.com` /
@@ -71,4 +90,4 @@ Then open <http://localhost:8000> and log in as `alice@example.com` /
 
 That's enough to explore the app, but not enough to upload real
 pictures yet — for that you'll need two S3 buckets, which is exactly
-where [LAB.md](LAB.md) picks up. Go there next.
+where [LAB.md](LAB.md) picks up after Part 1. Go there next.
