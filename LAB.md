@@ -150,10 +150,11 @@ completely independent of anything in the cloud.
    chmod 777 data/logs
    ```
 
-   (The `chmod` is a lab shortcut so the container's non-root user can
-   write into a directory owned by your host user — not something
-   you'd do on a real server, where you'd match ownership properly
-   instead of opening it up to everyone.)
+   > [!TIP]
+   > The `chmod 777` is a lab shortcut so the container's non-root
+   > user can write into a directory owned by your host user — not
+   > something you'd do on a real server, where you'd match ownership
+   > properly instead of opening a directory up to everyone.
 
 3. Start everything:
 
@@ -704,10 +705,18 @@ tier if your account has it available) → DB instance identifier
 `instaretto-db-<yourname>` → master username `instaretto`, set and
 **save** a master password somewhere → instance class `db.t3.micro` →
 storage: gp3, 20 GB → Connectivity: your default VPC, **Public access:
-No** (this database should never be reachable directly from the
-internet), VPC security group: choose existing →
+No**, VPC security group: choose existing →
 `instaretto-rds-sg-<yourname>` (remove the default one it suggests) →
 Initial database name `instaretto` → Create database.
+
+> [!WARNING]
+> **Public access: No** is not a default you can skip past — this
+> database should never be directly reachable from the internet. Its
+> only path in is through the security-group rule from Part 6.1, which
+> allows connections *only* from your EC2 instance's security group.
+> If you accidentally set this to "Yes," you've just exposed a real
+> Postgres server to the entire internet with nothing but a password
+> standing between it and anyone who finds it.
 
 CLI:
 
@@ -928,12 +937,15 @@ docker run -d --name instaretto \
   instaretto
 ```
 
-Notice what's **not** here: no `~/.aws` mount, no access key, no
-secret key, anywhere in `.env` or the `docker run` command. boto3
-inside the container still resolves credentials automatically — this
-time from the instance metadata service, because of the instance
-profile you attached in 6.3. Same application code, different
-credential source, zero code changes.
+> [!IMPORTANT]
+> Notice what's **not** here: no `~/.aws` mount, no access key, no
+> secret key, anywhere in `.env` or the `docker run` command. boto3
+> inside the container still resolves credentials automatically — this
+> time from the instance metadata service, because of the instance
+> profile you attached in 6.3. Same application code, different
+> credential source, zero code changes. This is the payoff for the
+> whole least-privilege detour in Part 2.2: the app never had to learn
+> a new way to get credentials, it just started getting better ones.
 
 **Checkpoint 1 — same code, different credential source:**
 
