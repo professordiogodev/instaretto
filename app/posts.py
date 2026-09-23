@@ -8,6 +8,7 @@ from flask import (
     request,
     url_for,
 )
+from botocore.exceptions import BotoCoreError, ClientError
 from sqlalchemy.exc import IntegrityError
 
 from app.auth import login_required
@@ -22,15 +23,26 @@ posts_bp = Blueprint("posts", __name__)
 @login_required
 def feed():
     posts = db.session.query(Post).order_by(Post.created_at.desc()).all()
-    posts_view = [
-        {
-            "post": post,
-            "image_url": presigned_get_url(current_app, post.s3_key),
-            "like_count": post.like_count(),
-            "liked_by_me": post.liked_by(g.user.id),
-        }
-        for post in posts
-    ]
+    posts_view = []
+    for post in posts:
+        try:
+            image_url = presigned_get_url(current_app, post.s3_key)
+        except (BotoCoreError, ClientError) as exc:
+            # Before S3 buckets exist (or with a placeholder bucket name
+            # still in .env), signing fails -- degrade to a broken image
+            # instead of a 500. See LAB.md Part 1.
+            current_app.logger.warning(
+                "presign_failed post_id=%s error=%s", post.id, exc
+            )
+            image_url = None
+        posts_view.append(
+            {
+                "post": post,
+                "image_url": image_url,
+                "like_count": post.like_count(),
+                "liked_by_me": post.liked_by(g.user.id),
+            }
+        )
     return render_template("feed.html", posts_view=posts_view)
 
 

@@ -79,10 +79,17 @@ completely independent of anything in the cloud.
    ```
 
    Paste the output into `SECRET_KEY` in `.env`. Leave `DATABASE_URL` as
-   the default (it points at the `db` service in docker-compose). Leave
-   `S3_BUCKET_UPLOADS` / `S3_BUCKET_LOGS` as the `<yourname>` placeholders
-   for now — replace `<yourname>` with your tag, even though the buckets
-   don't exist yet.
+   the default (it points at the `db` service in docker-compose).
+
+   For `S3_BUCKET_UPLOADS` / `S3_BUCKET_LOGS`, **replace the literal
+   text `<yourname>` with your actual tag right now** — e.g.
+   `S3_BUCKET_UPLOADS=instaretto-uploads-dbarros` — even though those
+   buckets don't exist in AWS yet. That's fine: the *name* just needs
+   to be a valid-looking bucket name, not a real one, for the app to
+   start. (If you genuinely forget this step, the app degrades
+   gracefully — broken images, rejected uploads — rather than
+   crashing, so it's not a disaster either way. But do it now, it
+   saves you a confusing detour later.)
 
 2. Create the local log directory the container will write into:
 

@@ -8,7 +8,7 @@
   <div class="feed">
     {% for item in posts_view %}
       <article class="post">
-        <img src="{{ item.image_url }}" alt="{{ item.post.description }}" loading="lazy">
+        <img src="{{ item.image_url or 'broken:no-signed-url' }}" alt="{{ item.post.description }}" loading="lazy">
         <div class="post-body">
           <p class="post-author">{{ item.post.author.email }}</p>
           <p class="post-description">{{ item.post.description }}</p>

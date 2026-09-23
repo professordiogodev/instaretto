@@ -2,7 +2,7 @@ import uuid
 
 import boto3
 from botocore.client import Config
-from botocore.exceptions import ClientError
+from botocore.exceptions import BotoCoreError, ClientError
 
 ALLOWED_CONTENT_TYPES = {
     "image/jpeg": "jpg",
@@ -83,7 +83,11 @@ def upload_post_image(app, file_storage, content_type: str) -> str:
             key,
             ExtraArgs={"ContentType": content_type},
         )
-    except ClientError as exc:
+    except (ClientError, BotoCoreError) as exc:
+        # BotoCoreError covers things ClientError doesn't, like a
+        # malformed bucket name (ParamValidationError) -- e.g. a
+        # placeholder still left in S3_BUCKET_UPLOADS. Both should
+        # surface as a normal rejected-upload message, not a 500.
         raise UploadRejected(f"upload to S3 failed: {exc}") from exc
 
     return key
