@@ -126,7 +126,10 @@ the app itself will.
 That last command runs `schema.sql` directly — open that file now and
 skim it, it's short and worth reading before you run it blind. It
 creates the `users`, `posts`, and `likes` tables and inserts a couple
-of seed rows so you have something to look at immediately.
+of seed rows so you have something to look at immediately. It's
+written to be safe to run more than once — if you're ever unsure
+whether you already loaded it, just run it again; it won't error and
+it won't duplicate the seed data.
 
 ### 1.3 Set up and run the app
 
@@ -188,6 +191,13 @@ of seed rows so you have something to look at immediately.
    it.
 
 5. Try signing up a new account, logging out, logging back in.
+
+**Don't click Upload yet.** You'll see the link in the nav bar — it's
+tempting, but uploading needs a real S3 bucket to send the picture to,
+which doesn't exist until Part 2. If you try it now, you'll get an
+"Upload rejected" message with an S3 error in it. That's expected, not
+a bug — come back to it once Part 2 is done, or read straight through
+to Part 3 to understand why first.
 
 **Checkpoint:** the feed loads, shows two seed posts with broken
 images, and you can sign up / log in / log out. Your terminal running
