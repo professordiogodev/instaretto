@@ -138,10 +138,11 @@ sudo DEBIAN_FRONTEND=noninteractive apt install -y postgresql
 sudo systemctl enable --now postgresql
 ```
 
-(`DEBIAN_FRONTEND=noninteractive` just skips a timezone prompt that one
-of Postgres's dependencies can pop up on a completely fresh system —
-without it, the install can look like it's hung when it's actually
-just waiting for input.)
+> [!TIP]
+> `DEBIAN_FRONTEND=noninteractive` just skips a timezone prompt that
+> one of Postgres's dependencies can pop up on a completely fresh
+> system — without it, the install can look like it's hung when it's
+> actually just waiting for input.
 
 Confirm it's running:
 
@@ -150,11 +151,14 @@ sudo -u postgres psql -c "SELECT version();"
 ```
 
 If that prints a PostgreSQL version instead of a connection error,
-you're set. (The `sudo -u postgres` part matters: apt's Postgres
-package creates one superuser role, `postgres`, and only lets you log
-into it by first becoming the matching `postgres` *Linux* user — your
-own Linux user has no Postgres role yet, which is exactly what the
-next step fixes.)
+you're set.
+
+> [!NOTE]
+> The `sudo -u postgres` part matters: apt's Postgres package creates
+> one superuser role, `postgres`, and only lets you log into it by
+> first becoming the matching `postgres` *Linux* user — your own Linux
+> user has no Postgres role yet, which is exactly what the next step
+> fixes.
 
 ### 1.2 Create the database and load the schema
 
@@ -179,9 +183,7 @@ it won't duplicate the seed data.
 
 ### 1.3 Set up and run the app
 
-1. Create a Python virtual environment (an isolated folder of Python
-   packages just for this project, so it doesn't clash with anything
-   else on your machine) and install dependencies into it:
+1. Create a virtual environment and install dependencies into it:
 
    ```
    python3 -m venv .venv
@@ -780,10 +782,18 @@ tier if your account has it available) → DB instance identifier
 `instaretto-db-<yourname>` → master username `instaretto`, set and
 **save** a master password somewhere → instance class `db.t3.micro` →
 storage: gp3, 20 GB → Connectivity: your default VPC, **Public access:
-No** (this database should never be reachable directly from the
-internet), VPC security group: choose existing →
+No**, VPC security group: choose existing →
 `instaretto-rds-sg-<yourname>` (remove the default one it suggests) →
 Initial database name `instaretto` → Create database.
+
+> [!WARNING]
+> **Public access: No** is not a default you can skip past — this
+> database should never be directly reachable from the internet. Its
+> only path in is through the security-group rule from Part 6.1, which
+> allows connections *only* from your EC2 instance's security group.
+> If you accidentally set this to "Yes," you've just exposed a real
+> Postgres server to the entire internet with nothing but a password
+> standing between it and anyone who finds it.
 
 CLI:
 
@@ -1028,11 +1038,15 @@ sudo systemctl status instaretto
 it did locally in Part 1), so Gunicorn picks up your configuration
 without any extra systemd configuration for environment variables.
 
-Notice what's **not** here: no access key, no secret key, anywhere in
-`.env` or the systemd unit file. boto3 inside the app still resolves
-AWS credentials automatically — this time from the instance metadata
-service, because of the instance profile you attached in 6.3. Same
-application code, different credential source, zero code changes.
+> [!IMPORTANT]
+> Notice what's **not** here: no access key, no secret key, anywhere
+> in `.env` or the systemd unit file. boto3 inside the app still
+> resolves AWS credentials automatically — this time from the instance
+> metadata service, because of the instance profile you attached in
+> 6.3. Same application code, different credential source, zero code
+> changes. This is the payoff for the whole least-privilege detour in
+> Part 2.2: the app never had to learn a new way to get credentials,
+> it just started getting better ones.
 
 **Checkpoint 1 — same code, different credential source:**
 

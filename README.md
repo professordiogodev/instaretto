@@ -12,9 +12,9 @@ and the full hands-on lab walks you through every layer of it, first
 on your own laptop, then for real on AWS.
 
 **New here? Start with [LAB.md](LAB.md).** It's a step-by-step guide
-written for people who haven't necessarily touched AWS (or even run a
-Python web app) before — each part ends with a concrete checkpoint so
-you always know if you're still on track.
+through the AWS side of things — each part ends with a concrete
+checkpoint so you always know if you're still on track, even if this
+is your first time provisioning real cloud infrastructure by hand.
 
 ## What you'll practice
 
@@ -36,13 +36,18 @@ No prior AWS experience required, and this version of the lab doesn't
 use Docker or containers anywhere — everything runs directly with a
 Python virtual environment and a PostgreSQL server installed on your
 machine, so there's one less new tool between you and the concepts
-that actually matter here. (If you already know Docker and want to see
-the same app deployed with it instead, check out the `with-docker`
-branch — but that's optional, later material.)
+that actually matter here.
 
-Everything here assumes a **Linux shell**: native Linux, WSL2 on
-Windows, or OrbStack (or similar) on macOS — commands are plain
-`apt`/`systemctl`, nothing OS-specific beyond that.
+> [!TIP]
+> Already comfortable with Docker and want to see the same app
+> deployed that way instead? Check out the `with-docker` branch —
+> optional, come-back-to-it material, not something you need for this
+> version.
+
+> [!NOTE]
+> Everything here assumes a **Linux shell**: native Linux, WSL2 on
+> Windows, or OrbStack (or similar) on macOS — commands are plain
+> `apt`/`systemctl`, nothing OS-specific beyond that.
 
 ## Stack
 
@@ -70,10 +75,7 @@ LAB.md                 The full hands-on lab — start here
 
 ## Getting started
 
-Don't set this up from this README — **[LAB.md](LAB.md) is the single
-source of truth for every setup step**, from installing PostgreSQL
-through tearing down the AWS resources at the end. Duplicating those
-steps here would just give them a second place to go stale; this file
-stays a map of the repo, not a second copy of the instructions.
-
-Open [LAB.md](LAB.md) and start at Part 0.
+Head to **[LAB.md](LAB.md)** and start at Part 0 — that's where every
+setup step lives, from installing PostgreSQL through tearing down the
+AWS resources at the end, kept in one place so it's always the
+up-to-date version.
