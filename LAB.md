@@ -75,6 +75,46 @@ confusing "it says it doesn't exist" errors.
 
 Clone or copy this repo to your machine before continuing.
 
+**A note on code blocks in this lab.** Every code block below is one
+of two things: a **command to type into your terminal**, or **content
+to edit inside a file**. Whenever it's the second kind, the text right
+before it will say so explicitly — "Edit `.env`:", for example — and
+that means open the file in a text editor (`nano .env`, `vim .env`,
+VS Code, whatever you're comfortable with) and change or add the lines
+shown, not type them at a shell prompt.
+
+The two files you'll hand-edit most in this lab, `.env` and
+`aws/iam-policy.json`, are easy to mix up with commands precisely
+because they're just plain text — nothing about them *looks*
+different from a command until you notice the sentence right above
+them telling you what to do.
+
+**`.env` vs. shell environment variables — they're not the same
+thing.** Both end up looking like `KEY=value` to the app, but where
+they live and how long they last are completely different:
+
+- **`.env` is a file**, sitting in this project's folder, holding
+  configuration the *app itself* needs every time it starts —
+  `SECRET_KEY`, `DATABASE_URL`, bucket names, and so on. `wsgi.py`
+  reads this file automatically on startup (you'll see exactly how in
+  Part 1), so whatever's in it is available no matter which terminal
+  tab you run the app from, or how many times you restart it. You edit
+  it once and it stays edited.
+- **Shell environment variables** are set directly in your terminal
+  session — either with `export VAR=value` (stays set for the rest of
+  that terminal tab) or inline before a single command, like
+  `VAR=value some-command` (set for just that one command). They
+  vanish the moment you close the terminal, and they're invisible to
+  anything that isn't specifically looking at *that* process's
+  environment.
+
+You'll see both patterns in this lab. Config the app needs on every
+startup goes in `.env` (a file you edit). One-off values for a script
+that isn't the app itself — `scripts/ship_logs.sh` in Part 5, which
+never reads `.env` at all — get passed inline as shell variables
+instead, because that script only looks at whatever's in its
+environment at the moment you run it.
+
 ---
 
 ## Part 1: Install PostgreSQL and run the app locally
@@ -157,16 +197,31 @@ it won't duplicate the seed data.
    python3 -c "import secrets; print(secrets.token_hex(32))"
    ```
 
-   Paste the output into `SECRET_KEY` in `.env`. Leave `DATABASE_URL`
-   as the default — it already points at the database you just
-   created (`localhost`, matching username/password `instaretto`).
+   **Edit `.env`** (the file you just created — open it in a text
+   editor, this isn't a command) and change three things:
 
-   For `S3_BUCKET_UPLOADS` / `S3_BUCKET_LOGS`, **replace the literal
-   text `<yourname>` with your actual tag right now** — e.g.
-   `S3_BUCKET_UPLOADS=instaretto-uploads-dbarros` — even though those
-   buckets don't exist in AWS yet. That's fine: the *name* just needs
-   to be a valid-looking bucket name, not a real one, for the app to
-   start. (If you genuinely forget this step, the app degrades
+   - Paste the `secrets.token_hex(32)` output you just generated as
+     the value of `SECRET_KEY`.
+   - Leave `DATABASE_URL` as the default — it already points at the
+     database you just created (`localhost`, matching
+     username/password `instaretto`).
+   - For `S3_BUCKET_UPLOADS` / `S3_BUCKET_LOGS`, **replace the literal
+     text `<yourname>` with your actual tag right now** — e.g.
+     `S3_BUCKET_UPLOADS=instaretto-uploads-dbarros` — even though
+     those buckets don't exist in AWS yet. That's fine: the *name*
+     just needs to be a valid-looking bucket name, not a real one, for
+     the app to start.
+
+   After editing, those three lines in `.env` should look something
+   like:
+
+   ```
+   SECRET_KEY=<the long hex string you generated>
+   DATABASE_URL=postgresql://instaretto:instaretto@localhost:5432/instaretto
+   S3_BUCKET_UPLOADS=instaretto-uploads-dbarros
+   ```
+
+   (If you genuinely forget the bucket-name step, the app degrades
    gracefully — broken images, rejected uploads — rather than
    crashing, so it's not a disaster either way. But do it now, it
    saves you a confusing detour later.)
@@ -293,9 +348,32 @@ resource, like the EC2 instance in Part 6, to assume; a human sitting
 at a laptop authenticates as a user instead) — and point the app at
 *that* instead of your main account credentials.
 
-First, edit `aws/iam-policy.json` and replace both `<yourname>`
-placeholders with your actual bucket names — you'll reuse this exact
-file again unedited in Part 6.3, for the EC2 role.
+**Edit `aws/iam-policy.json`** first — open the file (it's not a
+command) and replace both `<yourname>` placeholders with your actual
+bucket names. You'll reuse this exact file again unedited in Part 6.3,
+for the EC2 role, so get it right once here. After editing, both
+`Resource` lines should have your real bucket names in them, e.g.:
+
+```
+"Resource": "arn:aws:s3:::instaretto-uploads-dbarros/posts/*"
+```
+
+not the literal text `<yourname>`. **This is the single easiest step
+in this lab to get wrong without noticing** — if you skip it or typo
+it, every command below will succeed (they don't check the file's
+contents), but the user you create will end up with a policy that
+doesn't actually match your real buckets, and uploads will fail later
+with a confusing `AccessDenied` that gives no hint the problem is a
+stale bucket name. Before moving on, double check with:
+
+```
+cat aws/iam-policy.json
+```
+
+and confirm you see your real bucket names, not `<yourname>`, in both
+`Resource` lines.
+
+Now, from your terminal, create the user and attach that policy:
 
 ```
 aws iam create-user --user-name instaretto-local-<yourname>
@@ -307,6 +385,11 @@ aws iam put-user-policy \
 
 aws iam create-access-key --user-name instaretto-local-<yourname>
 ```
+
+(If you already ran these with the placeholder still in the file,
+fixing `aws/iam-policy.json` and re-running just the `put-user-policy`
+command is enough — it overwrites the existing policy of that name, no
+need to delete or recreate the user.)
 
 That last command prints an `AccessKeyId` and `SecretAccessKey` —
 **save them somewhere now**, the secret is shown exactly once and
@@ -329,7 +412,8 @@ It'll prompt for the access key ID, secret, default region
 (`us-east-1`), and output format (`json` is fine).
 
 Your `.env` should already have the right bucket names in it from Part
-1 — the only thing left to change is uncommenting/setting:
+1. **Edit `.env`** one more time (open the file — this next line isn't
+a command) and uncomment/set:
 
 ```
 AWS_PROFILE=instaretto-local
@@ -504,7 +588,11 @@ ls data/logs/
 You should now see `app.log` (still being actively written to — leave
 it alone) and one `app.log.YYYY-MM-DD` file (the "rotated" one).
 
-Now ship it with the provided script:
+Now ship it with the provided script. This *is* a command to run — and
+a good example of the shell-variable pattern from Part 0: those three
+`VAR=value` lines aren't going in any file, they're set inline just
+for this one command, because `ship_logs.sh` isn't the app and never
+reads `.env`:
 
 ```
 LOG_DIR=./data/logs \
@@ -737,8 +825,9 @@ long-lived credentials there, a machine's temporary, automatically
 rotated ones here.
 
 You should have already edited `aws/iam-policy.json` with your real
-bucket names back in Part 2.2. If you skipped that step, do it now:
-replace both `<yourname>` placeholders with your actual bucket names.
+bucket names back in Part 2.2 — double check with `cat aws/iam-policy.json`
+that both `Resource` lines show your real bucket names, not the
+literal text `<yourname>`. If you skipped that step, edit the file now.
 
 Console: IAM service → **Roles** → **Create role** → Trusted entity:
 AWS service → Use case: **EC2** → Next → **Create policy** (opens a
@@ -857,7 +946,13 @@ booting, and double check your security group allows SSH from your
 current IP.)
 
 Once you're in, on the instance — this is the same three moves as
-Part 1: clone the code, set up a virtual environment, write `.env`:
+Part 1: clone the code, set up a virtual environment, write `.env`.
+This whole block *is* a command (the `cat > .env <<EOF ... EOF` part
+writes the file for you), but **replace `<the-master-password>`,
+`<rds-endpoint>`, and both `<yourname>` placeholders with your real
+values before running it** — pasting them in literally will write a
+broken `.env`, the same way leaving `<yourname>` in a policy file
+breaks the IAM policy in Part 2.2:
 
 ```bash
 git clone <this-repo-url> instaretto
@@ -875,6 +970,9 @@ S3_BUCKET_LOGS=instaretto-logs-<yourname>
 AWS_REGION=us-east-1
 LOG_DIR=./data/logs
 EOF
+
+# Double check the file actually has your real values, not placeholders:
+cat .env
 
 # Load the schema once, directly against RDS.
 psql "$(grep DATABASE_URL .env | cut -d= -f2-)" -f schema.sql
