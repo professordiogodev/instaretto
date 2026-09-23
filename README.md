@@ -68,26 +68,12 @@ aws/iam-policy.json     Least-privilege policy for the EC2 instance role
 LAB.md                 The full hands-on lab — start here
 ```
 
-## Quick start (local)
+## Getting started
 
-```
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env      # edit values
-```
+Don't set this up from this README — **[LAB.md](LAB.md) is the single
+source of truth for every setup step**, from installing PostgreSQL
+through tearing down the AWS resources at the end. Duplicating those
+steps here would just give them a second place to go stale; this file
+stays a map of the repo, not a second copy of the instructions.
 
-You'll also need PostgreSQL running locally and the schema loaded —
-[LAB.md Part 1](LAB.md) walks through installing it and setting that up
-in a couple of commands. Once that's done:
-
-```
-flask --app wsgi run --port 8000
-```
-
-Then open <http://localhost:8000> and log in as `alice@example.com` /
-`password123`.
-
-That's enough to explore the app, but not enough to upload real
-pictures yet — for that you'll need two S3 buckets, which is exactly
-where [LAB.md](LAB.md) picks up after Part 1. Go there next.
+Open [LAB.md](LAB.md) and start at Part 0.

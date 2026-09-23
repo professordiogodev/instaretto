@@ -63,11 +63,15 @@ You need:
 **Pick a short name tag once and reuse it everywhere** — your initials
 or student ID, lowercase, no spaces (e.g. `dbarros`). Every AWS
 resource you create in this lab gets that tag appended, e.g.
-`instaretto-uploads-dbarros`. This matters most for S3: **bucket names
-are globally unique across all of AWS**, not just your account, so
-`instaretto-uploads` alone will almost certainly collide with someone
-else's bucket somewhere in the world and your bucket creation will
-fail with `BucketAlreadyExists`.
+`instaretto-uploads-dbarros`.
+
+> [!WARNING]
+> **S3 bucket names are globally unique across all of AWS**, not just
+> your account. `instaretto-uploads` alone will almost certainly
+> collide with someone else's bucket somewhere in the world and your
+> bucket creation will fail with `BucketAlreadyExists` — this is why
+> the tag suffix matters most for S3, even though every resource in
+> this lab gets one.
 
 Region for this whole lab: **us-east-1** (Northern Virginia). Stick to
 this region throughout — mixing regions is a common source of
@@ -75,45 +79,47 @@ confusing "it says it doesn't exist" errors.
 
 Clone or copy this repo to your machine before continuing.
 
-**A note on code blocks in this lab.** Every code block below is one
-of two things: a **command to type into your terminal**, or **content
-to edit inside a file**. Whenever it's the second kind, the text right
-before it will say so explicitly — "Edit `.env`:", for example — and
-that means open the file in a text editor (`nano .env`, `vim .env`,
-VS Code, whatever you're comfortable with) and change or add the lines
-shown, not type them at a shell prompt.
+> [!IMPORTANT]
+> **Every code block below is one of two things: a command to type
+> into your terminal, or content to edit inside a file.** Whenever
+> it's the second kind, the text right before it says so explicitly —
+> "Edit `.env`:", for example — meaning open the file in a text editor
+> (`nano .env`, `vim .env`, VS Code, whatever you're comfortable with)
+> and change or add the lines shown, **not** type them at a shell
+> prompt.
+>
+> The two files you'll hand-edit most in this lab, `.env` and
+> `aws/iam-policy.json`, are easy to mix up with commands precisely
+> because they're just plain text — nothing about them *looks*
+> different from a command until you notice the sentence right above
+> them telling you what to do.
 
-The two files you'll hand-edit most in this lab, `.env` and
-`aws/iam-policy.json`, are easy to mix up with commands precisely
-because they're just plain text — nothing about them *looks*
-different from a command until you notice the sentence right above
-them telling you what to do.
-
-**`.env` vs. shell environment variables — they're not the same
-thing.** Both end up looking like `KEY=value` to the app, but where
-they live and how long they last are completely different:
-
-- **`.env` is a file**, sitting in this project's folder, holding
-  configuration the *app itself* needs every time it starts —
-  `SECRET_KEY`, `DATABASE_URL`, bucket names, and so on. `wsgi.py`
-  reads this file automatically on startup (you'll see exactly how in
-  Part 1), so whatever's in it is available no matter which terminal
-  tab you run the app from, or how many times you restart it. You edit
-  it once and it stays edited.
-- **Shell environment variables** are set directly in your terminal
-  session — either with `export VAR=value` (stays set for the rest of
-  that terminal tab) or inline before a single command, like
-  `VAR=value some-command` (set for just that one command). They
-  vanish the moment you close the terminal, and they're invisible to
-  anything that isn't specifically looking at *that* process's
-  environment.
-
-You'll see both patterns in this lab. Config the app needs on every
-startup goes in `.env` (a file you edit). One-off values for a script
-that isn't the app itself — `scripts/ship_logs.sh` in Part 5, which
-never reads `.env` at all — get passed inline as shell variables
-instead, because that script only looks at whatever's in its
-environment at the moment you run it.
+> [!IMPORTANT]
+> **`.env` vs. shell environment variables — they're not the same
+> thing.** Both end up looking like `KEY=value` to the app, but where
+> they live and how long they last are completely different:
+>
+> - **`.env` is a file**, sitting in this project's folder, holding
+>   configuration the *app itself* needs every time it starts —
+>   `SECRET_KEY`, `DATABASE_URL`, bucket names, and so on. `wsgi.py`
+>   reads this file automatically on startup (you'll see exactly how
+>   in Part 1), so whatever's in it is available no matter which
+>   terminal tab you run the app from, or how many times you restart
+>   it. You edit it once and it stays edited.
+> - **Shell environment variables** are set directly in your terminal
+>   session — either with `export VAR=value` (stays set for the rest
+>   of that terminal tab) or inline before a single command, like
+>   `VAR=value some-command` (set for just that one command). They
+>   vanish the moment you close the terminal, and they're invisible to
+>   anything that isn't specifically looking at *that* process's
+>   environment.
+>
+> You'll see both patterns in this lab. Config the app needs on every
+> startup goes in `.env` (a file you edit). One-off values for a
+> script that isn't the app itself — `scripts/ship_logs.sh` in Part 5,
+> which never reads `.env` at all — get passed inline as shell
+> variables instead, because that script only looks at whatever's in
+> its environment at the moment you run it.
 
 ---
 
@@ -247,12 +253,13 @@ it won't duplicate the seed data.
 
 5. Try signing up a new account, logging out, logging back in.
 
-**Don't click Upload yet.** You'll see the link in the nav bar — it's
-tempting, but uploading needs a real S3 bucket to send the picture to,
-which doesn't exist until Part 2. If you try it now, you'll get an
-"Upload rejected" message with an S3 error in it. That's expected, not
-a bug — come back to it once Part 2 is done, or read straight through
-to Part 3 to understand why first.
+> [!WARNING]
+> **Don't click Upload yet.** You'll see the link in the nav bar — it's
+> tempting, but uploading needs a real S3 bucket to send the picture
+> to, which doesn't exist until Part 2. If you try it now, you'll get
+> an "Upload rejected" message with an S3 error in it. That's
+> expected, not a bug — come back to it once Part 2 is done, or read
+> straight through to Part 3 to understand why first.
 
 **Checkpoint:** the feed loads, shows two seed posts with broken
 images, and you can sign up / log in / log out. Your terminal running
@@ -308,10 +315,11 @@ aws s3api create-bucket \
   --region us-east-1
 ```
 
-(us-east-1 is the *one* region where `create-bucket` does **not** take
-a `--create-bucket-configuration LocationConstraint=...` flag — every
-other region needs one. A common gotcha if you ever copy this command
-for a different region.)
+> [!TIP]
+> us-east-1 is the *one* region where `create-bucket` does **not**
+> take a `--create-bucket-configuration LocationConstraint=...` flag —
+> every other region needs one. A common gotcha if you ever copy this
+> command for a different region.
 
 **Checkpoint:**
 
@@ -358,20 +366,24 @@ for the EC2 role, so get it right once here. After editing, both
 "Resource": "arn:aws:s3:::instaretto-uploads-dbarros/posts/*"
 ```
 
-not the literal text `<yourname>`. **This is the single easiest step
-in this lab to get wrong without noticing** — if you skip it or typo
-it, every command below will succeed (they don't check the file's
-contents), but the user you create will end up with a policy that
-doesn't actually match your real buckets, and uploads will fail later
-with a confusing `AccessDenied` that gives no hint the problem is a
-stale bucket name. Before moving on, double check with:
+not the literal text `<yourname>`.
 
-```
-cat aws/iam-policy.json
-```
-
-and confirm you see your real bucket names, not `<yourname>`, in both
-`Resource` lines.
+> [!WARNING]
+> **This is the single easiest step in this lab to get wrong without
+> noticing.** If you skip it or typo it, every command below will
+> succeed anyway — they don't check the file's contents — but the user
+> you create ends up with a policy that doesn't actually match your
+> real buckets, and uploads fail later with a confusing `AccessDenied`
+> that gives no hint the problem is a stale bucket name. This has
+> already happened to a real student testing this exact lab. Before
+> moving on, double check with:
+>
+> ```
+> cat aws/iam-policy.json
+> ```
+>
+> and confirm you see your real bucket names, not `<yourname>`, in
+> both `Resource` lines.
 
 Now, from your terminal, create the user and attach that policy:
 
@@ -396,10 +408,11 @@ That last command prints an `AccessKeyId` and `SecretAccessKey` —
 can't be retrieved again later (you'd have to delete this key and
 create a new one).
 
-A freshly created access key can take a few seconds to become usable —
-if the checkpoints below give you an authentication error immediately
-after this, wait about 15 seconds and try again before assuming you
-did something wrong.
+> [!TIP]
+> A freshly created access key can take a few seconds to become
+> usable — if the checkpoints below give you an authentication error
+> immediately after this, wait about 15 seconds and try again before
+> assuming you did something wrong.
 
 Configure those as a *second*, separate named profile — don't overwrite
 your main one:
@@ -684,9 +697,10 @@ will already look familiar by then).
 
 ## Part 6: Move to RDS + EC2 with an IAM role
 
-This is the biggest part of the lab — take it slowly, and don't skip
-the explanations, since almost every piece here is a new AWS concept.
-Grab a coffee.
+> [!IMPORTANT]
+> This is the biggest part of the lab — take it slowly, and don't skip
+> the explanations, since almost every piece here is a new AWS
+> concept. Grab a coffee.
 
 Here's the whole idea in one sentence: **only `DATABASE_URL` changes.**
 Everything else about the app — including how it talks to S3 — stays
@@ -899,17 +913,19 @@ dnf install -y python3.11 python3.11-pip git postgresql15
 
 CLI:
 
+> [!NOTE]
+> Some accounts (school/org-managed AWS accounts in particular) have a
+> default VPC whose subnets aren't flagged "default for AZ" — when
+> that's the case, `run-instances` can't auto-pick one and fails with
+> `No subnets found for the default VPC`. The `SUBNET_ID` line below
+> picks one explicitly so it works either way.
+
 ```
 AMI_ID=$(aws ec2 describe-images --owners amazon \
   --filters "Name=name,Values=al2023-ami-2023.*-x86_64" \
   --query 'Images | sort_by(@,&CreationDate) | [-1].ImageId' \
   --output text --region us-east-1)
 
-# Some accounts (school/org-managed AWS accounts in particular) have a
-# default VPC whose subnets aren't flagged "default for AZ" -- when
-# that's the case, run-instances can't auto-pick one and fails with
-# "No subnets found for the default VPC". Pick one explicitly to avoid
-# depending on that flag either way.
 SUBNET_ID=$(aws ec2 describe-subnets --filters "Name=vpc-id,Values=$VPC_ID" \
   --query 'Subnets[0].SubnetId' --output text --region us-east-1)
 
@@ -948,11 +964,14 @@ current IP.)
 Once you're in, on the instance — this is the same three moves as
 Part 1: clone the code, set up a virtual environment, write `.env`.
 This whole block *is* a command (the `cat > .env <<EOF ... EOF` part
-writes the file for you), but **replace `<the-master-password>`,
-`<rds-endpoint>`, and both `<yourname>` placeholders with your real
-values before running it** — pasting them in literally will write a
-broken `.env`, the same way leaving `<yourname>` in a policy file
-breaks the IAM policy in Part 2.2:
+writes the file for you):
+
+> [!WARNING]
+> **Replace `<the-master-password>`, `<rds-endpoint>`, and both
+> `<yourname>` placeholders with your real values before running
+> this.** Pasting them in literally will write a broken `.env` — the
+> same mistake as leaving `<yourname>` in a policy file, which is what
+> broke the IAM policy in Part 2.2.
 
 ```bash
 git clone <this-repo-url> instaretto
@@ -1052,9 +1071,11 @@ extra configuration needed on the server.
 
 ## Part 7: Cleanup
 
-**Don't skip this** — everything you created in Part 6 costs money
-while it's running. Order matters below: some resources refuse to
-delete while something else still references them.
+> [!CAUTION]
+> **Don't skip this** — everything you created in Part 6 costs money
+> while it's running, whether or not you're using it. Order matters
+> below: some resources refuse to delete while something else still
+> references them.
 
 ```bash
 # 1. Terminate the EC2 instance
