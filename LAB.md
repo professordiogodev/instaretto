@@ -313,6 +313,11 @@ That last command prints an `AccessKeyId` and `SecretAccessKey` —
 can't be retrieved again later (you'd have to delete this key and
 create a new one).
 
+A freshly created access key can take a few seconds to become usable —
+if the checkpoints below give you an authentication error immediately
+after this, wait about 15 seconds and try again before assuming you
+did something wrong.
+
 Configure those as a *second*, separate named profile — don't overwrite
 your main one:
 
@@ -323,9 +328,8 @@ aws configure --profile instaretto-local
 It'll prompt for the access key ID, secret, default region
 (`us-east-1`), and output format (`json` is fine).
 
-Now update `.env`: set `S3_BUCKET_UPLOADS` / `S3_BUCKET_LOGS` to your
-real bucket names (replacing the `<yourname>` placeholders), and
-uncomment/set:
+Your `.env` should already have the right bucket names in it from Part
+1 — the only thing left to change is uncommenting/setting:
 
 ```
 AWS_PROFILE=instaretto-local
@@ -372,8 +376,8 @@ type yourself in this lab (S3/RDS/EC2/IAM provisioning) — only the
 
 1. Log in, click **Upload**, choose a real `.jpg`/`.png`/`.webp` under
    5 MB (any picture on your laptop works), add a description, submit.
-2. You should land back on the feed and see your image rendered for
-   real this time.
+2. You should land back on the feed and see your image rendered as a
+   real picture, not a broken-image icon.
 
 **Checkpoint 1 — the object actually landed in S3:**
 
@@ -381,9 +385,11 @@ type yourself in this lab (S3/RDS/EC2/IAM provisioning) — only the
 aws s3 ls s3://instaretto-uploads-<yourname>/posts/
 ```
 
-You should see one object named `<uuid>.<ext>` — not your original
-filename. The app never trusts or stores the client's filename; it
-generates a random one itself.
+You should see an object named `<uuid>.<ext>` — not your original
+filename, the app never trusts or stores the client's filename, it
+generates a random one itself. (If you also uploaded a test picture
+back in Part 2.2's checkpoint, you'll see two objects here — that's
+fine, both are real uploads.)
 
 **Checkpoint 2 — the bucket really is private.** In your browser,
 right-click the uploaded image and choose "copy image address," then
