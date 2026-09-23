@@ -113,7 +113,9 @@ completely independent of anything in the cloud.
    `schema.sql` automatically the first time it boots — open that file
    now and skim it, it's short and worth reading before you run it
    blind), and starts the Flask app under Gunicorn. Leave this running
-   in its own terminal tab.
+   in its own terminal tab. (`schema.sql` is written to be safe to run
+   more than once, so even if you tear down and recreate the database
+   volume later, re-seeding never duplicates the seed data.)
 
 4. Open <http://localhost:8000>. Log in as a seed user (a user already
    created for you by `schema.sql`, so you don't have to sign up first
@@ -125,6 +127,13 @@ completely independent of anything in the cloud.
    it.
 
 5. Try signing up a new account, logging out, logging back in.
+
+**Don't click Upload yet.** You'll see the link in the nav bar — it's
+tempting, but uploading needs a real S3 bucket to send the picture to,
+which doesn't exist until Part 2. If you try it now, you'll get an
+"Upload rejected" message with an S3 error in it. That's expected, not
+a bug — come back to it once Part 2 is done, or read straight through
+to Part 3 to understand why first.
 
 **Checkpoint:** the feed loads, shows two seed posts with broken
 images, and you can sign up / log in / log out. Run
