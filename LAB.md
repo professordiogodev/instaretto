@@ -211,7 +211,7 @@ cat data/logs/app.log
 
 ---
 
-## Part 2: Create the S3 buckets
+## Part 2: Create the S3 buckets and a scoped-down local identity
 
 **S3 (Simple Storage Service)** is AWS's object storage: think of a
 "bucket" as a giant, infinitely-scalable folder that holds files
@@ -225,7 +225,9 @@ that opens anything up to the internet. The app reaches images only
 through short-lived, signed URLs it generates itself (more on that in
 Part 3) — never through a public bucket.
 
-### Console
+### 2.1 Create the buckets
+
+#### Console
 
 If you'd rather click through the AWS web console than type commands:
 
@@ -237,7 +239,7 @@ If you'd rather click through the AWS web console than type commands:
 5. Create the bucket.
 6. Repeat for `instaretto-logs-<yourname>`.
 
-### CLI
+#### CLI
 
 Or, the equivalent from your terminal:
 
@@ -256,16 +258,6 @@ a `--create-bucket-configuration LocationConstraint=...` flag — every
 other region needs one. A common gotcha if you ever copy this command
 for a different region.)
 
-Now update `.env` with your real bucket names (replace the
-`<yourname>` placeholders in `S3_BUCKET_UPLOADS` / `S3_BUCKET_LOGS`
-with the actual bucket names you just created), then stop the running
-app (`Ctrl+C` in its terminal tab) and start it again so it picks up
-the change:
-
-```
-flask --app wsgi run --port 8000
-```
-
 **Checkpoint:**
 
 ```
@@ -275,6 +267,104 @@ aws s3api get-public-access-block --bucket instaretto-uploads-<yourname>
 
 The first command should list both buckets. The second should show
 all four block-public-access settings as `true`.
+
+Don't update `.env` or restart the app yet — that happens once, at the
+end of the next step, once you also have credentials to put in it.
+
+### 2.2 Create a least-privilege local identity
+
+Right now, whatever AWS CLI profile you've been using to create these
+buckets is almost certainly a broad one — the account you set up
+yourself, with wide permissions. That's fine, even necessary, for the
+`aws s3api` / `aws rds` / `aws ec2` / `aws iam` commands you type
+directly in this lab: creating infrastructure genuinely needs broad
+permissions. But the **app itself**, once it's running, never needs
+any of that. All it ever does with AWS is put and get objects under
+one S3 prefix, and put objects under another. Running it locally under
+your broad account-owner credentials works, but it means a bug in the
+app — or a leaked `.env` file — could do a lot more damage than the
+app itself ever needs to be capable of.
+
+This is the exact same **least-privilege** principle you'll apply again
+in Part 6.3 for the EC2 instance role, applied here first to your own
+local machine. You're about to create a second, deliberately narrow
+identity — an IAM **user** this time, not a role (a role is for an AWS
+resource, like the EC2 instance in Part 6, to assume; a human sitting
+at a laptop authenticates as a user instead) — and point the app at
+*that* instead of your main account credentials.
+
+First, edit `aws/iam-policy.json` and replace both `<yourname>`
+placeholders with your actual bucket names — you'll reuse this exact
+file again unedited in Part 6.3, for the EC2 role.
+
+```
+aws iam create-user --user-name instaretto-local-<yourname>
+
+aws iam put-user-policy \
+  --user-name instaretto-local-<yourname> \
+  --policy-name instaretto-s3-access \
+  --policy-document file://aws/iam-policy.json
+
+aws iam create-access-key --user-name instaretto-local-<yourname>
+```
+
+That last command prints an `AccessKeyId` and `SecretAccessKey` —
+**save them somewhere now**, the secret is shown exactly once and
+can't be retrieved again later (you'd have to delete this key and
+create a new one).
+
+Configure those as a *second*, separate named profile — don't overwrite
+your main one:
+
+```
+aws configure --profile instaretto-local
+```
+
+It'll prompt for the access key ID, secret, default region
+(`us-east-1`), and output format (`json` is fine).
+
+Now update `.env`: set `S3_BUCKET_UPLOADS` / `S3_BUCKET_LOGS` to your
+real bucket names (replacing the `<yourname>` placeholders), and
+uncomment/set:
+
+```
+AWS_PROFILE=instaretto-local
+```
+
+Then start the app (or restart it, if it was already running):
+
+```
+flask --app wsgi run --port 8000
+```
+
+**Checkpoint 1 — the app still works, under the narrower identity:**
+log in, upload a real picture. It should succeed exactly like before —
+this identity has exactly enough permissions for what the app does.
+
+**Checkpoint 2 — and *only* exactly enough.** Try a couple of things
+this identity was deliberately never granted:
+
+```
+aws s3 ls --profile instaretto-local
+aws ec2 describe-instances --profile instaretto-local --region us-east-1
+```
+
+Both should fail with `AccessDenied` / `UnauthorizedOperation`. The
+first fails because the policy never granted `s3:ListAllMyBuckets` —
+notice that's a *different* S3 permission than the `PutObject`/
+`GetObject` it does have, so "scoped to S3" isn't the same thing as
+"can do anything in S3." The second fails because this identity can't
+touch EC2 at all. Compare that to your main profile, which can do both
+without a second thought:
+
+```
+aws s3 ls
+aws ec2 describe-instances --region us-east-1
+```
+
+From here on, keep using your main profile for the `aws` commands you
+type yourself in this lab (S3/RDS/EC2/IAM provisioning) — only the
+*app's own* runtime credentials changed.
 
 ---
 
@@ -633,10 +723,16 @@ The policy below (`aws/iam-policy.json`) is deliberately
 `logs/instaretto/*` in the logs bucket. Nothing else — no
 account-wide S3 access, no wildcard bucket-level actions. If this
 role's credentials ever leaked, the blast radius is exactly those two
-prefixes.
+prefixes. You've actually seen this exact policy already — it's the
+same one you attached to the IAM user you created for local testing in
+Part 2.2, just attached to a role instead of a user this time. Same
+permissions, different kind of identity wearing them: a human's
+long-lived credentials there, a machine's temporary, automatically
+rotated ones here.
 
-First, edit `aws/iam-policy.json` and replace both `<yourname>`
-placeholders with your actual bucket names.
+You should have already edited `aws/iam-policy.json` with your real
+bucket names back in Part 2.2. If you skipped that step, do it now:
+replace both `<yourname>` placeholders with your actual bucket names.
 
 Console: IAM service → **Roles** → **Create role** → Trusted entity:
 AWS service → Use case: **EC2** → Next → **Create policy** (opens a
@@ -890,12 +986,23 @@ aws iam remove-role-from-instance-profile \
   --role-name instaretto-ec2-role-<yourname>
 aws iam delete-instance-profile --instance-profile-name instaretto-ec2-role-<yourname>
 aws iam delete-role --role-name instaretto-ec2-role-<yourname>
+
+# 6. Delete the local least-privilege IAM user from Part 2.2
+aws iam delete-access-key \
+  --user-name instaretto-local-<yourname> --access-key-id <the-access-key-id-you-saved>
+aws iam delete-user-policy \
+  --user-name instaretto-local-<yourname> --policy-name instaretto-s3-access
+aws iam delete-user --user-name instaretto-local-<yourname>
 ```
 
+Also remove the `instaretto-local` profile from your local
+`~/.aws/credentials` / `~/.aws/config` (just delete its two sections by
+hand) — deleting the AWS-side user doesn't remove the stale local
+profile entry pointing at it.
+
 Locally, you can also stop Postgres if you're done for good
-(`brew services stop postgresql@16` on macOS, or
-`sudo systemctl stop postgresql` on Linux) — though there's no harm in
-leaving it installed and running for next time.
+(`sudo systemctl stop postgresql`) — though there's no harm in leaving
+it installed and running for next time.
 
 **Checkpoint** — each of these should come back empty (or show
 `terminated`):
@@ -906,6 +1013,7 @@ aws rds describe-db-instances --query 'DBInstances[?DBInstanceIdentifier==`insta
 aws ec2 describe-instances --filters Name=tag:Name,Values=instaretto-app-<yourname> \
   --query 'Reservations[].Instances[].State.Name'
 aws iam list-roles --query 'Roles[?RoleName==`instaretto-ec2-role-<yourname>`]'
+aws iam list-users --query 'Users[?UserName==`instaretto-local-<yourname>`]'
 ```
 
 ---
@@ -952,3 +1060,9 @@ with whoever's sitting next to you.
    actually give you (`Restart=on-failure`, surviving SSH logout,
    `systemctl status`) that just running a command in your terminal on
    the server wouldn't?
+9. You used two different AWS identities in this lab for two different
+   jobs: a broad account-owner profile for the `aws` commands you typed
+   yourself, and a narrow `instaretto-local` IAM user for whatever the
+   *app* runs as. What would you have actually lost by just running the
+   app under your broad profile the whole time, given you never
+   intended to misuse it yourself?
